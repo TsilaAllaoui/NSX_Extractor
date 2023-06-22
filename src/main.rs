@@ -1,17 +1,15 @@
-use std::fmt::format;
 use std::fs;
 use std::process::Command;
 
-fn main() {
+fn get_game_infos(input: String) {
     // Safeguards
     fs::read("prod.keys")
         .expect("Decryption keys not found! Add \"prod.keys\" with \"nstool.exe\"");
     fs::read("nstool.exe").expect("\"nstool.exe\" not found!");
 
     // Extract NSP/XCI
-    let mut output = Command::new("nstool.exe")
-        .args(["-h"])
-        // .args(["-x", "tmp", "rom.nsp"])
+    Command::new("nstool.exe")
+        .args(["-x", "tmp", &input])
         .output()
         .expect("Failed to extract rom file!");
 
@@ -28,7 +26,7 @@ fn main() {
 
     // Extract CNMT Layout file
     let a = format!("tmp/{}", &cnmt_layout_filename);
-    output = Command::new("nstool.exe")
+    let mut output = Command::new("nstool.exe")
         .args(["-x", "tmp/cnmt", &a])
         .output()
         .expect("Failed to execute command");
@@ -64,8 +62,8 @@ fn main() {
         }
     }
 
-    // Extracting metadata file
-    output = Command::new("nstool.exe")
+    // Extracting and reading metadata file
+    Command::new("nstool.exe")
         .args([
             "-x",
             "tmp/metadata",
@@ -74,14 +72,6 @@ fn main() {
         .output()
         .expect("Error extracting metadata");
 
-    // Reading game title
-    // let mut control_filenmae = String::new();
-    // files = fs::read_dir("tmp/metadata/0").expect("Metadata folder not found!");
-    // for file in files {
-    //     if (file.expect("File not found").file_name().to_string_lossy() == "control.nacp") {
-    //         control_filenmae =
-    //     }
-    // }
     output = Command::new("nstool.exe")
         .args(["tmp/metadata/0/control.nacp"])
         .output()
@@ -96,19 +86,36 @@ fn main() {
             break;
         }
     }
-    println!("{}", title);
-    let res = fs::remove_dir_all("games");
-    fs::create_dir("games").expect("Error creating output for games");
+
+    // Creating output file and copying icon
     let dir_name = title.replace(" " , "_").replace(":", "").to_string();
-    print!("{}", dir_name);
     fs::create_dir(format!("games/{}", dir_name)).expect("Error creating output for games");
     fs::write(format!("games/{}/{}.txt", dir_name,dir_name), format!("Game Title Name: {}",title)).expect("Can't write file");
     files = fs::read_dir("tmp/metadata/0").expect("Folder not found");
     for file in files {
         let name = file.expect("File not found").file_name().into_string().expect("Conversion error");
         if name.find(".dat") != None {
-            fs::copy(format!("tmp/metadata/0/{}", name), format!("games/{}/{}", dir_name, name)).expect("Can't copy file");
+            fs::copy(format!("tmp/metadata/0/{}", name), format!("games/{}/{}.png", dir_name, name)).expect("Can't copy file");
             break;
+        }
+    }
+}
+
+fn main() {
+    // Cleaning older temp files
+    let _ = fs::remove_dir_all("tmp");
+    _ = fs::remove_dir_all("games");
+    fs::create_dir("games").expect("Error creating output for games");
+
+    // Iterating files, getting rom files then extract icon and infos
+    let rom_files = fs::read_dir(".").expect("Error getting rom files");
+    for file in rom_files {
+        let path = file.as_ref().expect("Error getting file").file_name().into_string().expect("Conversion error");
+        let full_path = file.expect("File not found").path().as_path().to_string_lossy().to_string();
+        if path.find(".nsp") != None || path.find(".xci") != None {
+            println!("Getting infos of :{}", path);
+            get_game_infos(String::from(full_path));
+            _ = fs::remove_dir_all("tmp");
         }
     }
 }
