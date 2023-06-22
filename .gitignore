@@ -1,3 +1,7 @@
 /target
 /tmp
-*nsp
+*.nsp
+/.vscode
+*.exe
+*.keys
+/games
