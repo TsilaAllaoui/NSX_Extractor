@@ -1,6 +1,12 @@
 use std::fs;
 use std::process::Command;
 
+#[derive(Debug)]
+struct Game {
+    title: String,
+    icon: String
+}
+
 fn get_game_infos(input: String) {
     // Safeguards
     fs::read("prod.keys")
@@ -90,7 +96,7 @@ fn get_game_infos(input: String) {
     // Creating output file and copying icon
     let dir_name = title.replace(" " , "_").replace(":", "").to_string();
     fs::create_dir(format!("games/{}", dir_name)).expect("Error creating output for games");
-    fs::write(format!("games/{}/{}.txt", dir_name,dir_name), format!("Game Title Name: {}",title)).expect("Can't write file");
+    fs::write(format!("games/{}/{}.txt", dir_name,dir_name), format!("Game Title Name:\n{}",title)).expect("Can't write file");
     files = fs::read_dir("tmp/metadata/0").expect("Folder not found");
     for file in files {
         let name = file.expect("File not found").file_name().into_string().expect("Conversion error");
@@ -101,7 +107,29 @@ fn get_game_infos(input: String) {
     }
 }
 
+fn generate_json() {
+
+    let _ = fs::remove_file("games/games.json");
+
+    let mut games: Vec<Game> = Vec::new(); 
+    let entries = fs::read_dir("games").expect("Game folder not found");
+    for file in entries {
+        let name = file.expect("File name error").file_name().into_string().expect("Conversion error");
+        let file = fs::read_to_string(format!("games/{}/{}.txt", name, name)).expect("File not fount");
+        let parts: Vec<&str> = file.split("\n").collect();
+        let game = Game{title: parts[1].to_string(),icon: "icon.png".to_string()};
+        games.push(game);
+    } 
+    let output = format!("{:#?}", games).replace("Game", "").replace("title:", "\"title\":").replace("icon:", "\"icon\":").replace("png\",", "png\"").replace(",\n]", "\n]");
+    let _ = fs::File::create("games/games.json").expect("Can't create file");
+    let _ = fs::write("games/games.json", output);
+
+}
+
 fn main() {
+
+    println!("********** NSX Extractor v1.0 **********\n\n");
+
     // Cleaning older temp files
     let _ = fs::remove_dir_all("tmp");
     _ = fs::remove_dir_all("games");
@@ -111,11 +139,17 @@ fn main() {
     let rom_files = fs::read_dir(".").expect("Error getting rom files");
     for file in rom_files {
         let path = file.as_ref().expect("Error getting file").file_name().into_string().expect("Conversion error");
-        let full_path = file.expect("File not found").path().as_path().to_string_lossy().to_string();
+        let full_path = file.expect("File not found").path().to_string_lossy().to_string();
         if path.find(".nsp") != None || path.find(".xci") != None {
             println!("Getting infos of :{}", path);
             get_game_infos(String::from(full_path));
             _ = fs::remove_dir_all("tmp");
         }
     }
+
+    println!("\n********** Generating JSON **********\n\n");
+
+    generate_json();
+
+    println!("********** Extraction successful **********\n\n");
 }
