@@ -5,3 +5,8 @@
 *.exe
 *.keys
 /games
+*.cert
+*.tik
+*.xml
+*.nca
+*.xci
